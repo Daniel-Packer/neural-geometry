@@ -20,7 +20,7 @@ def random_layer_params(m, n, key, scale=1e-2):
     return scale * random.normal(w_key, (n, m)), scale * random.normal(b_key, (n,))
 
 # Initialize all layers for a fully-connected neural network with sizes "sizes"
-def init_network_params(sizes, key):
+def init_network_params(key, sizes):
     keys = random.split(key, len(sizes))
     return [random_layer_params(m, n, k) for m, n, k in zip(sizes[:-1], sizes[1:], keys)]
 def relu(x):
@@ -114,11 +114,24 @@ def train(params, num_epochs, batch_size, train_data, test_data, num_pixels, num
 
 def embed(params, image, k):
     activations = image
-    # Get the outputs at the second to last layer, pre-activation:
+    # Get the outputs at the kth layer, pre-activation:
     for w, b in params[:k]:
         outputs = jnp.dot(w, activations) + b
         activations = relu(outputs)
 
     return outputs
 
+def predict_on_embedded(params, embedded, k):
+    for i, (w, b) in enumerate(params[k:-1]):
+        if i == 0:
+            activations = embedded
+        outputs = jnp.dot(w, activations) + b
+        activations = relu(outputs)
+  
+    final_w, final_b = params[-1]
+    logits = jnp.dot(final_w, activations) + final_b
+    return logits - logsumexp(logits)
+
+
 batched_embed = vmap(embed, in_axes=(None, 0, None))
+batched_predict_on_embedded = vmap(predict_on_embedded, in_axes=(None, 0, None))
